@@ -32,6 +32,19 @@
       // Link for "Terms & Conditions" (replace "#" with your terms page)
       TERMS_URL: "#"
     };
+
+    // Start downloading the right background image as early as possible
+    var BG_URL = (window.matchMedia("(max-width: 768px)").matches && CONFIG.BACKGROUND_IMAGE_MOBILE)
+      ? CONFIG.BACKGROUND_IMAGE_MOBILE
+      : CONFIG.BACKGROUND_IMAGE;
+    if (BG_URL) {
+      var pl = document.createElement("link");
+      pl.rel = "preload";
+      pl.as = "image";
+      pl.href = BG_URL;
+      pl.setAttribute("fetchpriority", "high");
+      document.head.appendChild(pl);
+    }
   </script>
 
   <style>
@@ -73,7 +86,10 @@
       background-repeat: no-repeat;
       filter: blur(var(--blur));
       z-index: 0;
+      opacity: 0;
+      transition: opacity .4s ease;
     }
+    .ready .bg { opacity: 1; }
     @media (max-width: 768px) {
       .bg { background-image: var(--bg-mob, var(--bg-desk)); }
     }
@@ -104,7 +120,14 @@
       padding: 48px 36px 44px;
       text-align: center;
       box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .6);
-      animation: pop .35s ease both;
+      opacity: 0;
+      visibility: hidden;
+    }
+    /* Popup only appears once the background image has loaded */
+    .ready .card {
+      opacity: 1;
+      visibility: visible;
+      animation: pop .35s ease .15s both;
     }
     @keyframes pop { from { opacity: 0; transform: scale(.94); } }
 
@@ -207,6 +230,27 @@
     var bg = document.getElementById("bg");
     if (CONFIG.BACKGROUND_IMAGE) bg.style.setProperty("--bg-desk", cssUrl(CONFIG.BACKGROUND_IMAGE));
     if (CONFIG.BACKGROUND_IMAGE_MOBILE) bg.style.setProperty("--bg-mob", cssUrl(CONFIG.BACKGROUND_IMAGE_MOBILE));
+
+    // Show background + popup together once the image is loaded and decoded
+    var shown = false;
+    function showPage() {
+      if (shown) return;
+      shown = true;
+      document.body.classList.add("ready");
+    }
+    if (BG_URL) {
+      var img = new Image();
+      img.onload = function () {
+        if (img.decode) img.decode().then(showPage, showPage);
+        else showPage();
+      };
+      img.onerror = showPage;
+      img.src = BG_URL;
+      if (img.complete && img.naturalWidth) showPage();
+      setTimeout(showPage, 5000); // safety: never keep the popup hidden forever
+    } else {
+      showPage();
+    }
 
     document.getElementById("termsLink").href = CONFIG.TERMS_URL;
 
